@@ -1,12 +1,13 @@
 from collections import OrderedDict
 from datetime import datetime
 import hashlib
+from typing import Union, List
 
 class fileInfo(object):
     """File info object for torrent"""
     def __init__(self, info : OrderedDict):
         try:
-            self.path = [i.decode('utf8') for i in info[b'path']]
+            self.path = "/".join([i.decode('utf8') for i in info[b'path']])
         except KeyError:
             try:
                 self.path = info[b'name'].decode('utf-8')
@@ -30,6 +31,8 @@ class MetaInfo(object):
             encoding (str): optional parameter encoding of the .torrent metafile ('UTF-8' by default).
         """
 
+        self.files : Union[fileInfo, List[fileInfo]]
+        
         self.name = info.get(b'name')
         self.piece_length = info.get(b'piece length')
         self.pieces = []
@@ -52,7 +55,7 @@ class SingleFileMetaInfo(MetaInfo):
             info (OrderedDict): info key of the .torrent metafile
             encoding (str):  optional parameter encoding of the .torrent metafile ('UTF-8' by default).
         """
-        self.file = fileInfo(info)
+        self.files = fileInfo(info)
         self.type = 'S'
         super().__init__(info)
         
@@ -131,4 +134,4 @@ class Meta(object):
         except KeyError:
             self.created_by = None
 
-        self.info = MetaFactory.makeMeta(info[b'info'])
+        self.info : MetaInfo = MetaFactory.makeMeta(info[b'info'])

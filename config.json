@@ -1,0 +1,6 @@
+{
+    "MAX_PEER_CONNECTIONS" : 10,
+    "MAX_SIMULTANEOUS_LOADS" : 3,
+    "DOWNLOAD_FOLDER" : "/"
+    
+}

@@ -1,12 +1,10 @@
-import asyncio
+# import asyncio
 
-async def main():
-    print("Hi!")
+# async def main():
+#     print("Hi!")
 
-if __name__ == "__main__":
-    main()
-
-
+# if __name__ == "__main__":
+#     main()
 
 
 
@@ -18,18 +16,20 @@ if __name__ == "__main__":
 
 
 
-# from utils.bencoder import Decoder
-# import meta
-
-# a : Decoder
-# with open("./multifile.torrent", 'rb') as f:
-#     a = Decoder(f.read())
-
-# b = a.decode()
-# m = meta.Meta(b)
 
 
-# print(f"{m.info.files}")
+from client.utils.bencoder import Decoder
+import client.meta as meta
+
+a : Decoder
+with open("./multifile.torrent", 'rb') as f:
+    a = Decoder(f.read())
+
+b = a.decode()
+m = meta.Meta(b)
+
+
+print(f"{[i.path for i in m.info.files]}")
 
 
 
