@@ -1,0 +1,7 @@
+_test
+__pycache__
+build
+*.exe
+*.lib
+*.pyc
+*.pycache
