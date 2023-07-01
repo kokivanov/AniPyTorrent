@@ -3,27 +3,29 @@ from datetime import datetime
 import hashlib
 from typing import Union, List
 
-class fileInfo(object):
+from client.exceptions import CorruptedFileExeption
+
+class FileInfo(object):
     """File info object for torrent"""
     def __init__(self, info : OrderedDict):
         try:
-            self.path = "/".join([i.decode('utf8') for i in info[b'path']])
+            self.path : str = "/".join([i.decode('utf8') for i in info[b'path']])
         except KeyError:
             try:
-                self.path = info[b'name'].decode('utf-8')
+                self.path : str = info[b'name'].decode('utf-8')
             except KeyError:
-                raise ValueError
+                raise CorruptedFileExeption(f"Can't find path or name in provided config")
         
-        self.length = info[b'length']
+        self.length : int = int(info[b'length'])
         
         try:
-            self.md5sum = info[b'md5sum'].hex()
+            self.md5sum : str = bytes(info[b'md5sum']).hex()
         except KeyError:
-            self.md5sum = None
+            self.md5sum : str = None
 
     
 class MetaInfo(object):
-    def __init__(self, info: OrderedDict):
+    def __init__(self, info: OrderedDict[bytes, bytes]):
         """Base class for meta information
 
         Args:
@@ -31,16 +33,16 @@ class MetaInfo(object):
             encoding (str): optional parameter encoding of the .torrent metafile ('UTF-8' by default).
         """
 
-        self.files : Union[fileInfo, List[fileInfo]]
+        self.files : List[FileInfo]
         
-        self.name = info.get(b'name')
-        self.piece_length = info.get(b'piece length')
-        self.pieces = []
+        self.name : str = info.get(b'name').decode()
+        self.piece_length : int = info.get(b'piece length')
+        self.pieces : List[PieceInfo] = []
 
-        for i in range(20, len(info[b'pieces']), 20):
-            self.pieces.append(info[b'pieces'][i - 20: i].hex())
+        for i in range(20, len(info[b'pieces'])+1, 20):
+            self.pieces.append(PieceInfo(info[b'pieces'][i - 20: i]))
 
-        self.type = None
+        self.multifile = None
         
 
 
@@ -55,9 +57,10 @@ class SingleFileMetaInfo(MetaInfo):
             info (OrderedDict): info key of the .torrent metafile
             encoding (str):  optional parameter encoding of the .torrent metafile ('UTF-8' by default).
         """
-        self.files = fileInfo(info)
-        self.type = 'S'
+        self.pieces : List[PieceInfo]
+        self.files = [FileInfo(info)]
         super().__init__(info)
+        self.multifile = False
         
 
 class MultiFileMetainfo(MetaInfo):
@@ -71,14 +74,13 @@ class MultiFileMetainfo(MetaInfo):
             info (OrderedDict): info key of the .torrent metafile
             encoding (str): optional parameter encoding of the .torrent metafile ('UTF-8' by default).
         """
-        
         self.files = []
-
+        self.pieces : List[PieceInfo]
         for i in info[b'files']:
-            self.files.append(fileInfo(i))
+            self.files.append(FileInfo(i))
         
-        self.type = 'M'
         super().__init__(info)
+        self.multifile = True
 
 
 class MetaFactory(object):
@@ -93,7 +95,7 @@ class MetaFactory(object):
         return MultiFileMetainfo(*args, **kwargs)
 
     @staticmethod
-    def makeMeta(info: OrderedDict) -> MetaInfo:
+    def makeMeta(info: OrderedDict) -> MultiFileMetainfo | SingleFileMetaInfo:
         """Depending on whether info dictionary has "files" attribute returns MultiFileMetainfo or SingleFileMetaInfo
 
         Args:
@@ -106,6 +108,14 @@ class MetaFactory(object):
         ) else MetaFactory._makeSingle(info)
 
 
+class PieceInfo():
+    def __init__(self, piece : bytes):
+        self.value = piece
+    
+    @property
+    def hash(self):
+        return self.value.hex()
+
 class Meta(object):
     """Class that contains required information for estabilishing data exchange."""
     
@@ -115,23 +125,13 @@ class Meta(object):
         Args:
             info (OrderedDict): Torrent file metainfo
         """
-        self.announce = info[b'announce'].decode('utf-8')
-        try:
-            self.announce_list = [
-                [j.decode('utf-8') for j in i] for i in info[b'announce-list']]
-        except KeyError:
-            self.announce_list = None
-        try:
-            self.created = datetime.fromtimestamp(info[b'creation date'])
-        except KeyError:
-            self.created = None
-        try:
-            self.comment = info[b'comment'].decode('utf-8')
-        except KeyError:
-            self.comment = None
-        try:
-            self.created_by = info[b'created by'].decode('utf-8')
-        except KeyError:
-            self.created_by = None
+        self.announce = (info.get(b'announce') or b'').decode('utf-8')
+        self.announce_list = [
+                [j.decode('utf-8') for j in i] for i in info.get(b'announce-list') or []
+        ]
+        self.created = datetime.fromtimestamp((info.get(b'creation date') or datetime.now().timestamp()))
+        self.comment = (info.get(b'comment') or b'').decode('utf-8')
+        self.created_by = (info.get(b'created by') or b'').decode('utf-8')        
+        self.info : SingleFileMetaInfo | MultiFileMetainfo = MetaFactory.makeMeta(info[b'info'])
 
-        self.info : MetaInfo = MetaFactory.makeMeta(info[b'info'])
+

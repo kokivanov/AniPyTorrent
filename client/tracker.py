@@ -1,17 +1,24 @@
-import aiohttp
-import datetime
+from typing import Mapping
+from aiohttp import request
+
 
 class Tracker(object):
+    async def _make_request(self, par : Mapping[str, str] | None):
+        return await request("GET", self.tackerURL, params=par)
+        
+    async def make_handhsake(s):
+        s._make_request()
     
-    async def _make_request():
-        pass
+    def __init__(self, URL : str, peer_id : str):
+        self.tackerURL = URL
+        self._peer_id = peer_id
+
+    @property
+    def url(self) -> str:
+        return self.tackerURL
     
-    async def start():
-        pass
-    
-    def __init__(self, meta, id=datetime.datetime.now().timestamp()):
-            
-    
-        pass
+    @property
+    def peer_id(self) -> str:
+        return self._peer_id
 
     
